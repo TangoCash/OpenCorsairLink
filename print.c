@@ -16,44 +16,58 @@
  * along with OpenCorsairLink.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <stdio.h>
-#include <string.h>
-#include <stdlib.h>
-#include <libusb.h>
 #include "print.h"
+
 #include <stdarg.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
+uint8_t verbose = MSG_INFO;
 
-int verbose = MSG_INFO;
-
-int print(enum msglevel level, const char *fmt, ...)
+int
+print( enum msglevel level, const char* fmt, ... )
 {
     va_list ap;
     int ret = 0;
-    FILE *output_type = stdout;
+    FILE* output_type = stdout;
 
-    if (level < MSG_INFO)
+    if ( level < MSG_INFO )
         output_type = stderr;
 
-    if (level <= verbose) {
-        va_start(ap, fmt);
-        ret = vfprintf(output_type, fmt, ap);
-        va_end(ap);
-        if (level != MSG_SPEW)
-            fflush(output_type);
+    if ( level == MSG_MACHINE )
+    {
+        if ( verbose == MSG_MACHINE )
+        {
+            va_start( ap, fmt );
+            ret = vfprintf( output_type, fmt, ap );
+            va_end( ap );
+            fflush( output_type );
+        }
     }
+    else if ( level <= verbose )
+    {
+        va_start( ap, fmt );
+        ret = vfprintf( output_type, fmt, ap );
+        va_end( ap );
+        if ( level != MSG_SPEW )
+            fflush( output_type );
+    }
+
     return 0;
 }
 
-int dump_packet(uint8_t *packet, int size)
+int
+dump_packet( uint8_t* packet, int size )
 {
-    msg_debug2("\n---- Packet dump: -----------------------------");
-    for (int8_t j = 0; j < size; j++)
+    msg_debug2( "\n---- Packet dump: -----------------------------" );
+    for ( int8_t j = 0; j < size; j++ )
     {
-        if(j % 16 == 0) msg_debug2("\n");
-        msg_debug2("%02x ",packet[j]);
+        if ( j % 16 == 0 )
+            msg_debug2( "\n" );
+        msg_debug2( "%02x ", packet[j] );
     }
-    msg_debug2("\n-----------------------------------------------\n");
+    msg_debug2( "\n-----------------------------------------------\n" );
 
     return 0;
 }

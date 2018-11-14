@@ -16,52 +16,85 @@
  * along with OpenCorsairLink.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include "device.h"
+#include "driver.h"
+#include "lowlevel/asetek.h"
+
 #include <errno.h>
+#include <libusb.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <unistd.h>
 #include <string.h>
-#include <libusb.h>
-#include "../../lowlevel/asetek.h"
-#include "../../device.h"
-#include "../../driver.h"
+#include <unistd.h>
 
-
-int corsairlink_asetek_change_led(struct corsair_device_info *dev, struct libusb_device_handle *handle,
-            struct color *color_led, struct color *warning_led, uint8_t Warning_Temp, uint8_t Warning_Enable)
+int
+corsairlink_asetek_led_static_color(
+    struct corsair_device_info* dev, struct libusb_device_handle* handle, struct led_control* ctrl )
 {
     int rr;
-    uint8_t response[32];
-    uint8_t commands[32] ;
-    memset(response, 0, sizeof(response));
-    memset(commands, 0, sizeof(commands));
+    uint8_t response[64];
+    uint8_t commands[64];
+    memset( response, 0, sizeof( response ) );
+    memset( commands, 0, sizeof( commands ) );
 
     commands[0] = 0x10;
-    commands[1] = color_led->red;
-    commands[2] = color_led->green;
-    commands[3] = color_led->blue;
+    commands[1] = ctrl->led_colors[0].red;
+    commands[2] = ctrl->led_colors[0].green;
+    commands[3] = ctrl->led_colors[0].blue;
     commands[4] = 0x00;
     commands[5] = 0xff;
     commands[6] = 0xff;
-    commands[7] = warning_led->red;
-    commands[8] = warning_led->green;
-    commands[9] = warning_led->blue;
-    commands[10] = Warning_Temp; // 0x37 = ??, 0x2d = ??
-    commands[11] = 0x0a;
-    commands[12] = 0x05;
-    commands[13] = 0x01;
-    commands[14] = 0x00;
-    commands[15] = 0x00;
-    commands[16] = Warning_Enable;
-    commands[17] = 0x00;
-    commands[18] = 0x01;
+    commands[7] = 0xff;
+    commands[8] = 0x00;
+    commands[9] = 0x00;
+    commands[10] = 0x37; // 0x37 = 55C, 0x2d = 45C
+    commands[11] = 0x0a; // FadeThobInterval
+    commands[12] = 0x05; // ThrobSequence
+    commands[13] = 0x01; // LED Enable
+    commands[14] = 0x00; // Fade Enable
+    commands[15] = 0x00; // Throb Enable
+    commands[16] = 0x00; // Warning_Enable
+    commands[17] = 0x00; // BootMode
+    commands[18] = 0x01; // FanType
 
-    rr = dev->driver->write(handle, dev->write_endpoint, commands, 19);
-    rr = dev->driver->read(handle, dev->read_endpoint, response, 32);
+    rr = dev->driver->write( handle, dev->write_endpoint, commands, 19 );
+    rr = dev->driver->read( handle, dev->read_endpoint, response, 32 );
 
-    // fan_rpm = (long int) response[0]*16*16 + response[1];
-    // pump_rpm = (response[8]*16*16)+response[9];
-    // liquid_temp = (double) response[10] + (double) response[14]/10;
+    return rr;
+}
+
+int
+corsairlink_asetek_led_temperature(
+    struct corsair_device_info* dev, struct libusb_device_handle* handle, struct led_control* ctrl )
+{
+    int rr;
+    uint8_t response[64];
+    uint8_t commands[64];
+    memset( response, 0, sizeof( response ) );
+    memset( commands, 0, sizeof( commands ) );
+
+    commands[0] = 0x10;
+    commands[1] = ctrl->led_colors[0].red;
+    commands[2] = ctrl->led_colors[0].green;
+    commands[3] = ctrl->led_colors[0].blue;
+    commands[4] = ctrl->led_colors[1].blue; // fade
+    commands[5] = ctrl->led_colors[1].green;
+    commands[6] = ctrl->led_colors[1].blue;
+    commands[7] = ctrl->led_colors[2].red; // warning
+    commands[8] = ctrl->led_colors[2].green;
+    commands[9] = ctrl->led_colors[2].blue;
+    commands[10] = ctrl->temperatures[2]; // 0x37 = ??, 0x2d = ??
+    commands[11] = 10; // FadeThobInterval
+    commands[12] = 5; // ThrobSequence
+    commands[13] = 0x01; // LED Enable
+    commands[14] = 0x00; // Fade Enable
+    commands[15] = 0x00; // Throb Enable
+    commands[16] = 0x01; // Warning_Enable
+    commands[17] = 0x00; // BootMode
+    commands[18] = 0x01; // FanType
+
+    rr = dev->driver->write( handle, dev->write_endpoint, commands, 19 );
+    rr = dev->driver->read( handle, dev->read_endpoint, response, 32 );
 
     return rr;
 }
